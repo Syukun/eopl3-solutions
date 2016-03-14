@@ -1,7 +1,7 @@
 (load-relative "../libs/init.scm")
 (load-relative "./base/environments.scm")
 
-;; ex-22
+;; ex-23
 
 (define identifier? symbol?)
 (define the-lexical-spec
