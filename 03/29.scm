@@ -1,7 +1,7 @@
 (load-relative "../libs/init.scm")
 (load-relative "./base/environments.scm")
 
-;; ex-28
+;; ex-29
 ;; About dynamic binding.
 
 (define identifier? symbol?)
@@ -185,8 +185,17 @@
     (value-of-program (scan&parse string))))
 
 ;; test-code
-(run "let a = 3 in let p = proc (x) -(x, a) a = 5 in -(a, (p 2))")
+(run "let a = 3
+       in let p = proc (z) a
+          in let f = proc (x) (p 0)
+           in let a = 5
+              in (f 2)")
 
-;; ==> (num-val 8)
+;; ==> (num-val 5)
 
-
+ (run "let a = 3
+       in let p = proc (z) a
+          in let f = proc (x) (p 0)
+           in let a = 5
+              in (f a)")
+;; ==> (num-val 5)
