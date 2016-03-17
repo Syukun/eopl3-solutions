@@ -1,0 +1,1 @@
+("6.3" ("e3042c83bca6169ad48b260589b75f0a7333e1ed" . "fde2d89607a337a2d7b29e46cb397cdce962b098") #"C:\\Users\\Administrator\\Desktop\\eopl3-solutions\\03\\41\\helper.rkt" #"C:\\Users\\Administrator\\Desktop\\eopl3-solutions\\03\\41\\parse.rkt" (collects #"eopl" #"lang" #"reader.rkt") (collects #"eopl" #"main.rkt"))
