@@ -322,6 +322,6 @@
 
 ;; test code
 
-
+(run "let f = 1 g = 2 in g")
 
 
