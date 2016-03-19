@@ -158,7 +158,10 @@
   (lambda ()
     (empty-env)))
 
+
 ;;;;;;;;;;;;;;;; environment constructors and observers ;;;;;;;;;;;;;;;;
+(define extend-env-rec-cache '()) ;; 建立一个类似于cache一样的东西
+
 (define apply-env
   (lambda (env search-sym)
     (cases environment env
@@ -168,17 +171,30 @@
                        (if (eqv? search-sym bvar)
                            bval
                            (apply-env saved-env search-sym)))
+      
            (extend-env-rec* (p-names b-vars p-bodies saved-env)
-                            (cond
-                             ((location search-sym p-names) ;; 查找函数名
-                              => (lambda (n) ;; 如果前面的location函数返回了一个数
-                                   (newref ;; 构造一个引用
-                                    (proc-val ;; 构造出一个函数
-                                     (procedure
-                                      (list-ref b-vars n) ;; 我没有看错吧,居然直接调用list的函数来取形式参数
-                                      (list-ref p-bodies n) ;; 和对应的函数体
-                                      env)))))
-                             (else (apply-env saved-env search-sym)))))))
+                            (let [(res (assoc search-sym extend-env-rec-cache))]
+                              (if res
+                                  (cdr res) ;;如果返回的不是#f,那么返回后面的结果
+                                  (cond
+                                    ((location search-sym p-names) ;; 查找函数名
+                                     => (lambda (n) ;; 如果前面的location函数返回了一个数
+                                          (let [(new-proc 
+                                                 (newref ;; 构造一个引用
+                                                  (proc-val ;; 构造出一个函数
+                                                   (procedure
+                                                    (list-ref b-vars n) ;; 我没有看错吧,居然直接调用list的函数来取形式参数
+                                                    (list-ref p-bodies n) ;; 和对应的函数体
+                                                    env))))]
+                                            (begin
+                                              (set! extend-env-rec-cache (append extend-env-rec-cache
+                                                                                 (list (cons search-sym new-proc))))  
+                                              new-proc)))) 
+                                    (else (apply-env saved-env search-sym))))))
+                                  )))
+
+
+
 
 (define location
   (lambda (sym syms) ;; sym是要搜寻的东西
@@ -206,7 +222,8 @@
   (lambda (exp env)
     (cases expression exp
       (const-exp (num) (num-val num))
-      (var-exp (var) (deref (apply-env env var))) ;; var实际存储的是指针一类的东西,通过解引用(deref)才能获得正确的值
+      (var-exp (var)
+                 (deref (apply-env env var))) ;; var实际存储的是指针一类的东西,通过解引用(deref)才能获得正确的值
       
       (diff-exp (exp1 exp2)
                 (let ((val1 (value-of exp1 env))
@@ -230,13 +247,10 @@
                     (value-of exp3 env))))
       
       (let-exp (var-list exp-list body)
-               (begin
-                 (print "value-of let-exp var-list --> " var-list)
-                 (print "value-of let-exp exp-list --> " exp-list)
                  (let ((val-list (map (lambda (x) (value-of x env)) exp-list)))
                    (value-of body
                              (extend-env-list var-list val-list env))
-                   )))
+                   ))
       
       (proc-exp (var body)
                 (proc-val (procedure var body env)))
@@ -244,15 +258,11 @@
       (call-exp (rator rand)
                 (let ((proc (expval->proc (value-of rator env)))
                       (arg (map (lambda (x) (value-of x env)) rand)))
-                  (begin
-                    (print "valueof call-exp arg --> " arg)
-                    (apply-procedure proc arg))))
-      
+                  (apply-procedure proc arg)))
+                
       (letrec-exp (p-names b-vars-list p-bodies letrec-body)
-                  (begin
-                    (print "valueof letrec-exp b-vars-list -->" b-vars-list)
-                    (value-of letrec-body
-                              (extend-env-rec* p-names b-vars-list p-bodies env))))
+                  (value-of letrec-body
+                            (extend-env-rec* p-names b-vars-list p-bodies env)))
       
       (begin-exp (exp1 exps) ;; 这个式子只做了一件事情,从左至右执行begin的各个语句,最后将最后的语句的执行结果返回
                  (letrec
@@ -320,7 +330,10 @@
 
 (define run
   (lambda (string)
-    (value-of-program (scan&parse string))))
+      (let [(res (value-of-program (scan&parse string)))]
+        (begin
+          (set! extend-env-rec-cache '()) ;; 需要注意的是,测试完成之后要将extend-env-rec-cache清零
+          res))))
 
 ;; test code
 (run "letrec
