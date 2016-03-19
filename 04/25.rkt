@@ -406,6 +406,6 @@
 
 ;; test code
 
-
+(run "var x = 1, y = 3; {print x; print y}")
 
 
