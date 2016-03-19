@@ -5,7 +5,5 @@
 (define (print arg1 arg2)
   (begin
     (newline)
-    (newline)
     (display arg1)
-    (display arg2)
-    (newline)))
+    (display arg2)))
