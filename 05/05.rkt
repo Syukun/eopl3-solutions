@@ -340,6 +340,7 @@
   (lambda (string)
     (value-of-program (scan&parse string))))
 
-
+;; test code
+(run "list(1, 2, 3, 4, 5, 6)")
 
 
