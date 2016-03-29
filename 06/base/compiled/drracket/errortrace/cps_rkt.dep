@@ -1,0 +1,1 @@
+("6.4" ("b56b1b50fc64e46ad5cd5e359eb415a17d3d7c94" . "a6a5e670eabc8bfa59fe486dd4182d9b8e1215ed") #"C:\\Users\\Administrator\\Desktop\\eopl3-solutions\\06\\base\\cps-out-lang.rkt" (collects #"eopl" #"lang" #"reader.rkt") (collects #"eopl" #"main.rkt") (collects #"errortrace" #"errortrace-key.rkt"))
