@@ -3,7 +3,7 @@
 (require "./base/cps-out-lang.rkt")
 (require "./base/data-structures.rkt")
 
-;; 题目的要求是我们要完成 value-of-simple-exp
+;; 题目要求我们完全移除cont
 (define value-of-simple-exp
   (lambda (exp env)
     (cases simple-expression exp
@@ -35,25 +35,19 @@
 
 ;; value-of/k : TfExp * Env * Cont -> FinalAnswer
 (define value-of/k
-  (lambda (exp env cont)
+  (lambda (exp env)
     (cases tfexp exp
-      (simple-exp->exp (simple)
-                       (apply-cont cont
-                                   (value-of-simple-exp simple env)))
+      (simple-exp->exp (simple) (value-of-simple-exp simple env))
+      
       (cps-let-exp (var rhs body)
                (let [(val (value-of-simple-exp rhs env))]
                  (value-of/k body
-                             (extend-env* (list var) (list val) env)
-                             cont)))
+                             (extend-env-rec** (list var) (list val) env))))
+      
       (cps-if-exp (simple1 body1 body2)
               (if (expval->bool (value-of-simple-exp simple1 env))
-                  (value-of/k body1 env cont)
-                  (value-of/k body2 env cont)))
-      
-      (cps-letrec-exp (p-names b-varss p-bodies letrec-body)
-                      (value-of/k letrec-body
-                                  (extend-env-rec** p-names b-varss p-bodies env)
-                                  cont))
+                  (value-of/k body1 env)
+                  (value-of/k body2 env)))
 
       (cps-call-exp (rator rands)
                 (let [(rator-proc
@@ -64,25 +58,17 @@
                         (lambda (simple)
                           (value-of-simple-exp simple env))
                         rands))]
-                  (apply-procedure/k rator-proc rand-vals cont)))
+                  (apply-procedure/k rator-proc rand-vals)))
       (else #f)
       )))
 
 ;; apply-procedure : Proc * ExpVal -> ExpVal
 (define apply-procedure/k
-  (lambda (proc1 args cont)
+  (lambda (proc1 args)
     (cases proc proc1
       (procedure (vars body saved-env)
                  (value-of/k body
-                             (extend-env* vars args saved-env) cont)))))
-
-;; apply-cont : Cont * ExpVal -> Final-ExpVal
-;; there's only one continuation, and it only gets invoked once, at
-;; the end of the computation.
-(define apply-cont
-  (lambda (cont val)
-    (cases continuation cont
-	   (end-cont () val))))
+                             (extend-env* vars args saved-env))))))
 
 (define value-of-program
   (lambda (pgm)
@@ -90,10 +76,12 @@
     (cases cps-out-program pgm
            (cps-a-program (exp1)
                           ;(eopl:printf "exp1 -> ~a\n" exp1)
-                          (value-of/k exp1 (init-env) (end-cont))))))
+                          (value-of/k exp1 (init-env))))))
 (define run
   (lambda (string)
     (let ((cpsed-pgm
 	   (cps-of-program (scan&parse string))))
       (value-of-program cpsed-pgm))))
                      
+
+

@@ -1,4 +1,5 @@
 #lang eopl
+;; Complete the interpreter of figure 6.6 by supplying definitions for value-of-program and apply-cont.
 (require "./base/cps.rkt")
 (require "./base/cps-out-lang.rkt")
 (require "./base/data-structures.rkt")
@@ -43,17 +44,12 @@
       (cps-let-exp (var rhs body)
                (let [(val (value-of-simple-exp rhs env))]
                  (value-of/k body
-                             (extend-env* (list var) (list val) env)
+                             (extend-env-rec** (list var) (list val) env)
                              cont)))
       (cps-if-exp (simple1 body1 body2)
               (if (expval->bool (value-of-simple-exp simple1 env))
                   (value-of/k body1 env cont)
                   (value-of/k body2 env cont)))
-      
-      (cps-letrec-exp (p-names b-varss p-bodies letrec-body)
-                      (value-of/k letrec-body
-                                  (extend-env-rec** p-names b-varss p-bodies env)
-                                  cont))
 
       (cps-call-exp (rator rands)
                 (let [(rator-proc
@@ -97,3 +93,4 @@
 	   (cps-of-program (scan&parse string))))
       (value-of-program cpsed-pgm))))
                      
+
