@@ -1,12 +1,14 @@
 #lang eopl
 (provide (all-defined-out))
 (require "cps-out-lang.rkt")
+(define debug #t)
 ;; cps-of-program : InpExp -> TfExp
 ;; Page: 224
 (define cps-of-program
   (lambda (pgm)
     (cases program pgm
       (a-program (exp1)
+                 (if debug (eopl:printf "cps-of-program :\n exp1 -> ~a\n" exp1) #f)
                  (cps-a-program
                   (cps-of-exps (list exp1)
                                (lambda (new-args) 
@@ -32,10 +34,12 @@
       (if-exp (exp1 exp2 exp3)
               (cps-of-if-exp exp1 exp2 exp3 cont))
       (let-exp (var exp1 body)
+               (eopl:printf "cps-of-exp :\n var -> ~a\n exp1 -> ~a\n body -> ~a\n" var exp1 body) 
                (cps-of-let-exp var exp1 body cont))
       (letrec-exp (ids bidss proc-bodies body)
                   (cps-of-letrec-exp ids bidss proc-bodies body cont))
       (call-exp (rator rands)
+                (eopl:printf "cps-of-exp :\n rator -> ~a\n rands -> ~a\n" rator rands)
                 (cps-of-call-exp rator rands cont)))))
 
 ;; cps-of-exps : Listof(InpExp) * (Listof(InpExp) -> TfExp) 
@@ -56,13 +60,23 @@
                     (not (inp-exp-simple? exp)))
                   exps)))
         (if (not pos)
-            (builder (map cps-of-simple-exp exps))
+            (begin
+              ;(eopl:printf "cps-of-exps3 :\n exps -> ~a\n" exps)
+              (builder (map cps-of-simple-exp exps)))
             (let ((var (fresh-identifier 'var)))
-              (cps-of-exp
-               (list-ref exps pos)
-               (cps-proc-exp (list var)
-                             (cps-of-rest
-                              (list-set exps pos (var-exp var)))))))))))
+              (begin
+                ;(eopl:printf "cps-of-exps :\n var -> ~a\n" var)
+                ;(eopl:printf "cps-of-exps1 :\n exps -> ~a\n" exps)
+                (cps-of-exp
+                 (begin
+                   ;(eopl:printf "cps-of-exps :\n ref -> ~a\n" (list-ref exps pos))
+                   (list-ref exps pos))
+                 (cps-proc-exp (list var)
+                               (cps-of-rest
+                                (begin 
+                                  ;(eopl:printf "cps-of-exps2 :\n exps -> ~a\n" (list-set exps pos (var-exp var)))
+                                  (list-set exps pos (var-exp var))
+                                  )))))))))))
 
 ;; inp-exp-simple? : InpExp -> Bool
 ;; returns #t or #f, depending on whether exp would be a 
@@ -177,16 +191,18 @@
 ;; Page: 223
 (define cps-of-if-exp
   (lambda (exp1 exp2 exp3 k-exp)
+    (eopl:printf "cps-of-if-exp :\n k-exp -> ~a\n" k-exp)
     (cps-of-exps (list exp1)
                  (lambda (new-rands)
                    (cps-if-exp (car new-rands)
-                               (cps-of-exp exp2 k-exp)
+                               (cps-of-exp exp2 k-exp) ;; k-exp 代表cps-of-exp中的cont参数
                                (cps-of-exp exp3 k-exp))))))
 
 ;; cps-of-let-exp : Var * InpExp * InpExp * SimpleExp -> TfExp
 ;; Page: 222
 (define cps-of-let-exp
   (lambda (id rhs body k-exp)
+    (eopl:printf "cps-of-let-exp :\n id -> ~a\n rhs -> ~a\n body -> ~a\n k-exp -> ~a\n" id rhs body k-exp)
     (cps-of-exps (list rhs)
                  (lambda (new-rands)
                    (cps-let-exp id 
@@ -212,6 +228,8 @@
 ;; Page: 220
 (define cps-of-call-exp
   (lambda (rator rands k-exp)
+    (eopl:printf "cps-of-call-exp :\n rator -> ~a\n rands -> ~a\n k-exp -> ~a\n" rator rands k-exp)
+    (eopl:printf "cps-of-call-exp :\n cons rator rands -> ~a \n" (cons rator rands))
     (cps-of-exps (cons rator rands)
                  (lambda (new-rands)
                    (cps-call-exp

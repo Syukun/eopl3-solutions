@@ -55,7 +55,7 @@
                                   (extend-env-rec** p-names b-varss p-bodies env)
                                   cont))
 
-      (cps-call-exp (rator rands)
+      (cps-call-exp (rator rands) ;; 这是非常重要的一个式子
                 (let [(rator-proc
                        (expval->proc
                         (value-of-simple-exp rator env)))
