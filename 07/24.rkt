@@ -491,7 +491,8 @@
       
 
 ;; test code
-
+(type-of-program (scan&parse "letrec ? f (x : ?) = x, int g (y : ?) = 1 in (g 2)"))
+(type-of-program (scan&parse "letrec ? f (x : ?) = x, int g (y : ?) = 1 in (f 2)"))
 
 
 
