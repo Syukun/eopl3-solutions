@@ -204,7 +204,7 @@
 			   bval
 			   (apply-env saved-env search-sym)))
 	   (extend-env-recursively
-	    (id bvar body saved-env)
+	    (id bvar body saved-env) ;; id 表示函数的名字
 	    (if (eqv? search-sym id)
 		(proc-val (procedure bvar body env))
 		(apply-env saved-env search-sym)))

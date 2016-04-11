@@ -158,7 +158,7 @@
           (eopl:error "There are something wrong with your program!\n")))))
 
 ;; test code
-
+(run "module m interface [a:int b:int c:bool] body [c=zero?(3) b = 4 a = 3 ] from m take c")
 
 
 
