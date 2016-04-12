@@ -1,4 +1,6 @@
 #lang eopl
+
+;; 题目的要求是实现和声明可以不按照一定的顺序，为了减少代码量，我这里删除了解释器的部分
 (provide (all-defined-out))
 
 (define the-lexical-spec
@@ -265,157 +267,14 @@
 ;; 这个文件里面主要是关于data-strucure的一些事情。
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; data structures ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(define-datatype expval expval? ;; 值的类型
-  (num-val
-   (value number?))
-  (bool-val
-   (boolean boolean?))
-  (proc-val
-   (proc proc?)))
 
-;;; extractors:
-(define expval->num
-  (lambda (v)
-    (cases expval v
-           (num-val (num) num)
-           (else (expval-extractor-error 'num v)))))
 
-(define expval->bool
-  (lambda (v)
-    (cases expval v
-           (bool-val (bool) bool)
-           (else (expval-extractor-error 'bool v)))))
 
-(define expval->proc
-  (lambda (v)
-    (cases expval v
-           (proc-val (proc) proc)
-           (else (expval-extractor-error 'proc v)))))
 
-(define expval-extractor-error
-  (lambda (variant value)
-    (eopl:error 'expval-extractors "Looking for a ~s, found ~s"
-                variant value)))
 
-;;;;;;;;;;;;;;;; procedures ;;;;;;;;;;;;;;;;
-(define-datatype proc proc? ;; 好吧,所谓的过程
-  (procedure
-   (bvar (list-of symbol?))
-   (body expression?)
-   (env environment?)))
 
-;;;;;;;;;;;;;;;; module values ;;;;;;;;;;;;;;;;
-(define-datatype typed-module typed-module? ;; 模块类型
-  (simple-module
-   (bindings environment?))
-  (proc-module
-   (bvar symbol?)
-   (body module-body?)
-   (saved-env environment?))
-  )
 
-;;;;;;;;;;;;;;;; environments ;;;;;;;;;;;;;;;;
-(define-datatype environment environment?
-  (empty-env)
-  (extend-env
-   (bvar symbol?)
-   (bval expval?)
-   (saved-env environment?))
-  (extend-env-recursively
-   (ids (list-of symbol?))
-   (bvars (list-of (list-of symbol?)))
-   (body (list-of expression?))
-   (saved-env environment?))
-  (extend-env-with-module
-   (m-name symbol?)
-   (m-val typed-module?)
-   (saved-env environment?)
-   ))
 
-;;;;;;;;;;;;;;;; initial environment ;;;;;;;;;;;;;;;;
-
-;; initial-value-env : module-env -> environment
-
-;; (init-env m-env) builds an environment in which i is bound to the
-;; expressed value 1, v is bound to the expressed value 5, and x is
-;; bound to the expressed value 10, and in which m-env is the module
-;; environment.
-(define inital-value-env
-  (lambda (m-env)
-    (extend-env
-     'i (num-val 1)
-     (extend-env
-      'v (num-val 5)
-      (extend-env
-       'x (num-val 10)
-       (empty-env m-env))))))
-
-;;;;;;;;;;;;;;;; environment constructors and observers ;;;;;;;;;;;;;;;;
-
-;; for variables bound by extend-env or extend-env-recursively
-
-(define apply-env ;; 查找对应的值 
-  (lambda (env search-sym)
-    (cases environment env
-	   (empty-env ()
-		      (eopl:error 'apply-env "No value binding for ~s" search-sym))
-	   (extend-env (bvar bval saved-env)
-		       (if (eqv? search-sym bvar)
-			   bval
-			   (apply-env saved-env search-sym)))
-	   (extend-env-recursively
-	    (ids bvars bodies saved-env) ;; id 表示函数的名字
-            (let ([maybe-answer (lookup-id-in-ids search-sym ids bvars bodies)])
-              (if maybe-answer
-                  (let ([vars (car maybe-answer)]
-                        [body (cdr maybe-answer)])
-                    (proc-val (procedure vars body env)))
-                  (apply-env saved-env search-sym))))
-     
-	   (extend-env-with-module (m-name m-val saved-env)
-				   (begin
-				     (eopl:printf "\nhaha: ~s ~s\n" m-name search-sym)
-				     (apply-env saved-env search-sym)) ))))
-
-;; for names bound by extend-env-with-module
- (define lookup-id-in-ids
-        (lambda (id ids bvars bodies)
-          (if (null? id) #f
-              (if (eqv? id (car ids)) (cons (car bvars) (car bodies))
-                  (lookup-id-in-ids id (cdr ids) (cdr bvars) (cdr bodies)))))) 
-
-;; lookup-module-name-in-env : Sym * Env -> Typed-Module
-(define lookup-module-name-in-env 
-  (lambda (m-name env)
-    (cases environment env
-	   (empty-env ()
-		      (eopl:error 'lookup-module-name-in-env
-				  "No module binding for ~s" m-name))
-	   (extend-env (bvar bval saved-env)
-		       (lookup-module-name-in-env m-name saved-env))
-	   (extend-env-recursively  (id bvar body saved-env)
-				    (lookup-module-name-in-env m-name saved-env))
-	   (extend-env-with-module (m-name1 m-val saved-env)
-	    (if (eqv? m-name1 m-name)
-		m-val
-		(lookup-module-name-in-env m-name saved-env))))))
-
-;; lookup-qualified-var-in-env : Sym * Sym * Env -> ExpVal
-(define lookup-qualified-var-in-env ;; qualified var究竟是什么鬼? 有意思啊。
-  (lambda (m-name var-name env) 
-    (let ((m-val (lookup-module-name-in-env m-name env)))
-					; (pretty-print m-val)
-      (cases typed-module m-val
-	     (simple-module (bindings)
-			    (apply-env bindings var-name))
-	     (proc-module (bvar body saved-env)
-			  (eopl:error 'lookup-qualified-var
-				      "can't retrieve variable from ~s take ~s from proc module"
-				      m-name var-name))))))
-
-;(define expand-type (lambda (ty tenv) ty))
-;(define expand-iface (lambda (m-name iface tenv) iface))
 
 
 ;;;;;;;;;;;;;;;; expand-type ;;;;;;;;;;;;;;;;
@@ -456,7 +315,7 @@
 
 ;; creates new interface with all types expanded
 ;; expand-iface : Sym * Iface * Tenv -> Iface
-(define expand-iface ;; 好吧，这其实也是非常重要的一个函数
+(define expand-iface ;; 好吧,这其实也是非常重要的一个函数
   (lambda (m-name iface tenv)
     (cases interface iface
       (simple-iface (decls)
@@ -470,8 +329,8 @@
         (cases declaration (car decls)
           (opaque-type-decl (t-name) ;; 一个例子是 opaque t;
                             ;; here the expanded type is m.t
-                            ;; 你知道为什么要这么转吗，因为此时的t实际的类型我们是不知道的，只能留到将来来看这个东西究竟是个啥
-                            (let ([expanded-type (qualified-type m-name t-name)]) ;; 转变成为了 from m-name take t，这是一个展开的类型
+                            ;; 你知道为什么要这么转吗,因为此时的t实际的类型我们是不知道的,只能留到将来来看这个东西究竟是个啥
+                            (let ([expanded-type (qualified-type m-name t-name)]) ;; 转变成为了 from m-name take t,这是一个展开的类型
                               (let ([new-env (extend-tenv-with-type
                                               t-name ;; 这里的t-name是上面的opaque t中的t
                                               expanded-type
@@ -489,9 +348,9 @@
                                       (transparent-type-decl t-name expanded-type)
                                       (expand-decls m-name (cdr decls) new-env)))))
           (val-decl (var-name ty)
-                    (let ([expanded-type ;; 之所以要展开，因为可能有这样的情况
+                    (let ([expanded-type ;; 之所以要展开,因为可能有这样的情况
                            ;; opaque t
-                           ;; x : t 很明显，这里的t要展开为 from m take t
+                           ;; x : t 很明显,这里的t要展开为 from m take t
                            ;; transparent z = int
                            ;; y : z 这里的z要展开为int
                            (expand-type ty internal-tenv)])
@@ -583,22 +442,34 @@
   (lambda (decls1 decls2 tenv)
     (cond
      ;; if nothing in decls2, any decls1 will do
-     ((null? decls2) #t)
+     ((null? decls2) #t) ;; decls2是真正的声明，这里面的东西都要实现
      ;; nothing in decls1 to match, so false
-     ((null? decls1) #f)
+     ((null? decls1) #f) ;; decls2是由实现转化成为的声明
      (else
       ;; at this point we know both decls1 and decls2 are non-empty.
       (let ([name1 (decl->name (car decls1))]
             [name2 (decl->name (car decls2))])
-	(if (eqv? name1 name2)
-	    ;; same name.  They'd better match
-	    (and
-             (<:-decl (car decls1) (car decls2) tenv)
-             (<:-decls (cdr decls1) (cdr decls2)
-                       (extend-tenv-with-decl (car decls1) tenv)))
-            ;; different names.  OK to skip, but record decl1 in the tenv.
-            (<:-decls (cdr decls1) decls2
-                      (extend-tenv-with-decl (car decls1) tenv))))))))
+      (let ([name2 (decl->name (car decls2))])
+        (letrec ([find-name-in-decls1
+                  (lambda (name decls)
+                    (if (null? decls) #f
+                        (if (equal? name (decl->name (car decls)))
+                            (car decls)
+                            (find-name-in-decls1 name (cdr decls)))))]
+                 [remove-a-decl-in-decls1
+                  (lambda (name decls)
+                    (if (null? decls) '()
+                        (if (equal? name (decl->name (car decls)))
+                            (remove-a-decl-in-decls1 name (cdr decls))
+                            (cons (car decls) (remove-a-decl-in-decls1 name (cdr decls))))))])
+          (let ([maybe-a-decl (find-name-in-decls1 name2 decls1)]
+                [maybe-new-decls1 (remove-a-decl-in-decls1 name2 decls1)]) ;; 在decl1中查找
+            (if maybe-a-decl
+                (and
+                  (<:-decl maybe-a-decl (car decls2) tenv)
+                  (<:-decls maybe-new-decls1 (cdr decls2)
+                            (extend-tenv-with-decl maybe-a-decl tenv)))
+                (eopl:error "Something wrong with Implemention!\n"))))))))))
 
 ;; extend-tenv-with-decl : Decl * Tenv -> Tenv
 (define extend-tenv-with-decl
@@ -653,118 +524,16 @@
                  (type-of body
                           (add-module-defns-to-tenv module-defs (empty-tenv)))))))
 
-;; value-of-program : Program -> Expval
-(define value-of-program
-  (lambda (pgm)
-    (cases program pgm
-      (a-program (module-defs body)
-                 (let ([env (add-module-defns-to-env module-defs (empty-env))])
-                   (value-of body env))))))
 
-;; add-module-defns-to-env : Listof (Defn) * Env -> Env
-(define add-module-defns-to-env
-  (lambda (defs env)
-    (if (null? defs) env
-        (cases module-definition (car defs)
-          (a-module-definition (m-name iface m-body)
-                               (add-module-defns-to-env
-                                (cdr defs)
-                                (extend-env-with-module
-                                 m-name
-                                 (value-of-module-body m-body env)
-                                 env)))))))
-;; We will have let* scoping inside a module body.
-;; We put all the values in the environment, not just the ones
-;; that are in the interface.  But the typechecker will prevent
-;; anybody from using the extras.
 
-;; value-of-module-body : ModuleBody * Env -> TypedModule
-(define value-of-module-body
-  (lambda (m-body env)
-    (cases module-body m-body
-      (defns-module-body (defns)
-        (simple-module
-         (defns-to-env defns env))))))
+
+
 
 (define raise-cant-apply-non-proc-module!
   (lambda (rator-val)
     (eopl:error 'value-of-module-body
                 "can't apply non-proc-module-value ~s" rator-val)))
 
-
-;; defns-to-env : Listof(Defn) * Env -> Env
-(define defns-to-env
-  (lambda (defns env)
-    (if (null? defns)
-        (empty-env)
-        (cases definition (car defns)
-          (val-defn (var exp)
-                    (let ([val (value-of exp env)])
-                      (let ([new-env (extend-env var val env)])
-                        (defns-to-env
-                          (cdr defns) new-env))))
-          ;; type definitions are ignored at run time
-          [else ;; 好吧,这里的这个type-defn直接被忽略了
-           (defns-to-env (cdr defns) env)]
-          ))))
-
-;; value-of : Exp * Env -> ExpVal
-(define value-of
-  (lambda (exp env)
-    (cases expression exp
-      (const-exp (num) (num-val num))
-      (var-exp (var) (apply-env env var))
-      (qualified-var-exp (m-name var-name) ;; 模块的名字,变量的名字
-                         (lookup-qualified-var-in-env m-name var-name env))
-      (diff-exp (exp1 exp2)
-                (let ((val1
-                       (expval->num
-                        (value-of exp1 env)))
-                      (val2
-                       (expval->num
-                        (value-of exp2 env))))
-                  (num-val
-                   (- val1 val2))))
-      (zero?-exp (exp1)
-                 (let ((val1 (expval->num (value-of exp1 env))))
-                   (if (zero? val1)
-                       (bool-val #t)
-                       (bool-val #f))))
-      
-      (if-exp (exp0 exp1 exp2)
-              (if (expval->bool (value-of exp0 env))
-                  (value-of exp1 env)
-                  (value-of exp2 env)))
-      
-      (let-exp (vars exps body)
-               (let ((new-env (extend-env* vars exps env)))
-                 (value-of body new-env)))
-      
-      (proc-exp (bvars tys body)
-                (proc-val
-                 (procedure bvars body env)))
-      
-      (call-exp (rator rands) ;; 有多个参数
-                (let ([proc (expval->proc (value-of rator env))])
-                  (apply-procedure proc rands)))
-      
-      (letrec-exp (tys1 procs-name bvars tys2 procs-bodies letrec-body)
-                  (value-of letrec-body
-                            (extend-env-recursively procs-name bvars procs-bodies env)))
-      )))
-;; 这是一个辅助函数
-(define extend-env*
-  (lambda (vars exps new-env)
-    (if (null? vars) new-env
-        (extend-env* (cdr vars) (cdr exps)
-                     (extend-env (car vars) (value-of (car exps) new-env) new-env)))))
-
-;; apply-procedure : Proc * ExpVal -> ExpVal
-(define apply-procedure
-  (lambda (proc1 args)
-    (cases proc proc1
-           (procedure (vars body saved-env)
-                      (value-of body (extend-env* vars args saved-env))))))
 
 ;; add-module-defns-to-tenv : Listof (ModuleDefn) * Tenv -> Tenv
 (define add-module-defns-to-tenv
@@ -778,7 +547,7 @@
                                      ;; ok, continue in extended tenv
                                      (let ([new-env (extend-tenv-with-module
                                                      m-name
-                                                     (expand-iface m-name expected-iface tenv))])
+                                                     (expand-iface m-name expected-iface tenv) tenv)])
                                        (add-module-defns-to-tenv (cdr defns) new-env))
                                      ;; no, raise error
                                      (report-module-doesnt-satisfy-iface m-name
@@ -806,11 +575,11 @@
                         (cons
                          (val-decl var-name ty)
                          (defns-to-decls (cdr defns) new-tenv)))))
-          (type-defn (name ty) ;; 这里是类型的声明，举个栗子，type t = int
+          (type-defn (name ty) ;; 这里是类型的声明,举个栗子,type t = int
                      (let ([new-tenv (extend-tenv-with-type
                                       name
                                       (expand-type ty tenv) ;; 这里展开的原因是取决于这样的一个不变量
-                                      ;; 那就是在tenv中，类型ty一定存在这对应的已经展开了的值，一个栗子是
+                                      ;; 那就是在tenv中,类型ty一定存在这对应的已经展开了的值,一个栗子是
                                       ;; type t = int ;; 此时 (extend-tenv-with-type t int tenv)
                                       ;; type z = t   ;; 此时 (extend-tenv-with-type z int tenv) 因为此时的(expand-type t tenv)将 t转换为int
                                       ;; type u = z   ;; 此时 (extend-tenv-with-type u int tenv)
@@ -889,10 +658,6 @@
                    (type-of body new-tenv))))
                       
       
-     ; (let-exp (var exp1 body)
-	  ;	    (let ([rhs-type (type-of exp1 tenv)])
-	  ;	      (type-of body (extend-tenv var rhs-type tenv))))
-      
       (proc-exp (bvars bvars-type body)
                 (let ([expanded-bvars-type
                        (map (lambda (bvars-type) (expand-type bvars-type tenv)) bvars-type)]) ;; 特别注意这里的这个expand-type
@@ -928,7 +693,7 @@
                                                               tenv))))])
                      (let ([tenv-for-letrec-body
                             (extend-tenv** proc-names bvars-type proc-result-types tenv)])
-                    ;; 说实话，我挺讨厌写这种代码的，纯体力活
+                    ;; 说实话,我挺讨厌写这种代码的,纯体力活
                        (letrec ([check-letrec!
                                  (lambda (bvars bvar-types proc-result-types proc-bodies)
                                    (if (null? bvars) #t
@@ -999,7 +764,7 @@
       (if maybe-answer maybe-answer
           (raise-tenv-lookup-failure-error 'module search-sym tenv)))))
 
-(define lookup-type-name-in-tenv ;; 好吧，这个函数其实是非常重要的一个函数。
+(define lookup-type-name-in-tenv ;; 好吧,这个函数其实是非常重要的一个函数。
   (lambda (tenv search-sym) 
     (let ((maybe-answer
 	   (type-name->maybe-binding-in-tenv tenv search-sym)))
@@ -1072,13 +837,13 @@
         (empty-tenv () #f)
         (extend-tenv-with-module (name m-type saved-tenv) ;; m-type
                                  (if (eqv? name search-sym)
-                                     m-type ;; 这里我要说明一些 m-type的类型是interface，这个东西是语法里定义的具体是id type这样的元祖组成的list
+                                     m-type ;; 这里我要说明一些 m-type的类型是interface,这个东西是语法里定义的具体是id type这样的元祖组成的list
                                      (recur saved-tenv)))
         (else (recur (tenv->saved-tenv tenv)))))))
 
 ;; type-name->maybe-binding-in-tenv : Tenv * Sym -> Maybe(Iface)
-(define type-name->maybe-binding-in-tenv ;; 好吧，这个函数其实也是非常重要的。真的
-  (lambda (tenv search-sym) ;; type-name表示的是类型的名字，比如说， type t = int
+(define type-name->maybe-binding-in-tenv ;; 好吧,这个函数其实也是非常重要的。真的
+  (lambda (tenv search-sym) ;; type-name表示的是类型的名字,比如说, type t = int
     (let recur ((tenv tenv))
       (cases type-environment tenv
         (empty-tenv () #f)
@@ -1099,38 +864,11 @@
       (extend-tenv-with-module (name m-type saved-tenv) saved-tenv)
       (extend-tenv-with-type (name ty saved-tenv) saved-tenv))))
 
-(define run
-  (lambda (string)
-    (value-of-program (scan&parse string))))
+
 (define ck
   (lambda (string)
     (type-of-program (scan&parse string))))
 ;; test code
-
-(run "let a = 1 b = 2 in -(a, b)")
-(ck "let f = proc (x:int, y:int) -(x, y) in (f 3 4)")
-(ck "letrec int f (x:int, y:int) = -(x,y) in (f 3 4)")
-(ck "letrec int f (x:int, y:int) = -(x,y) , int g (x:int) = x in (g 3)")
-
-                              
-
-
-
-
-                        
-
-
-
-
-                                        
-            
-                    
-
-
-                 
-
-
-
-
+(ck "module m interface [opaque t true : t false : t] body [true = 1 false = 0 type t = int] 1")
 
 
